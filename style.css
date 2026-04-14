@@ -1,0 +1,28 @@
+body {
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+    text-align: center;
+}
+
+h1 {
+    margin: 20px;
+}
+
+.container {
+    display: flex;
+    justify-content: space-around;
+}
+
+.metrics {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 10px;
+    width: 25%;
+}
+
+#map {
+    height: 500px;
+    width: 65%;
+    border-radius: 10px;
+}
