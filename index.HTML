@@ -2,168 +2,82 @@
 <html>
 <head>
     <title>Traffic AI Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- Leaflet Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-
-    <style>
-        body { margin:0; font-family: Arial; }
-        #map { height: 100vh; }
-
-        .container {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 1000;
-        }
-
-        .panel {
-            background: rgba(0,0,0,0.75);
-            color: white;
-            padding: 12px;
-            border-radius: 10px;
-            width: 220px;
-        }
-    </style>
 </head>
+
 <body>
 
-<div id="map"></div>
+<h1>🚦 Traffic AI Smart Dashboard</h1>
 
 <div class="container">
-
-    <div class="panel">
-        <h3>🚦 Traffic AI</h3>
-        <p>🟢 Low</p>
-        <p>🟡 Medium</p>
-        <p>🔴 High</p>
-        <p>🟣 Incident</p>
+    
+    <!-- METRICS -->
+    <div class="metrics">
+        <h2>📊 System Metrics</h2>
+        <p>Total Junctions: <span id="total"></span></p>
+        <p>Average Traffic: <span id="avg"></span></p>
+        <p>Status: <span id="status"></span></p>
     </div>
 
-    <div class="panel">
-        <h4>📊 Metrics</h4>
-        <div id="metrics"></div>
-    </div>
-
-    <div class="panel">
-        <h4>🔥 Top Congested</h4>
-        <div id="top"></div>
-    </div>
-
-    <div class="panel">
-        <h4>⚙️ System</h4>
-        AI: ACTIVE 🤖<br>
-        Mode: Adaptive<br>
-        Control: Live
-    </div>
+    <!-- MAP -->
+    <div id="map"></div>
 
 </div>
 
 <script>
-var map = L.map('map').setView([13.01, 80.27], 14);
+    var map = L.map('map').setView([13.0827, 80.2707], 13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-let markers = {};
-let heatLayer;
-
-async function loadData() {
-    let res = await fetch('/data');
-    let data = await res.json();
-
-    let heatPoints = [];
-    let highCount = 0;
-
-    for (let key in data.traffic) {
-        let t = data.traffic[key];
-        let pos = data.positions[key];
-
-        if (!pos) continue;
-
-        let lat = 13.01 + pos[1] * 0.00001;
-        let lon = 80.27 + pos[0] * 0.00001;
-
-        let color = "green";
-
-        if (t.current > 15) {
-            color = "red";
-            highCount++;
-        } else if (t.current > 5) {
-            color = "orange";
-        }
-
-        let radius = Math.max(5, Math.min(20, 6 + t.current * 0.4));
-
-        if (t.incident) {
-            color = "purple";
-            radius = 25;
-
-            console.log("🚨 Incident at " + key);
-        }
-
-        let trend = t.predicted > t.current ? "📈" : "📉";
-
-        heatPoints.push([lat, lon, t.current / 20]);
-
-        if (!markers[key]) {
-            markers[key] = L.circleMarker([lat, lon], {
-                radius: radius,
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.7
-            }).addTo(map);
-        }
-
-        markers[key].setStyle({
-            radius: radius,
-            color: color,
-            fillColor: color
-        });
-
-        markers[key].bindPopup(
-            "🚦 Junction: " + key +
-            "<br>Current: " + t.current +
-            "<br>Predicted: " + t.predicted +
-            "<br>Trend: " + trend +
-            "<br>Signal: " + t.action +
-            "<br>Incident: " + (t.incident ? "🚨 YES" : "No") +
-            "<br>Reroute: " + t.reroute
-        );
-    }
-
-    if (heatLayer) map.removeLayer(heatLayer);
-
-    heatLayer = L.heatLayer(heatPoints, {
-        radius: 25,
-        blur: 15
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: 'Traffic AI'
     }).addTo(map);
 
-    // Metrics
-    document.getElementById("metrics").innerHTML =
-        "Total Junctions: " + Object.keys(data.traffic).length +
-        "<br>High Congestion: " + highCount +
-        "<br>Total Delay: " + data.metrics.total_delay +
-        "<br>Status: LIVE 🔴";
+    var markers = [];
 
-    // Top congested
-    let sorted = Object.entries(data.traffic)
-        .sort((a, b) => b[1].current - a[1].current)
-        .slice(0, 5);
+    function loadData() {
+        fetch('/data')
+        .then(res => res.json())
+        .then(data => {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
 
-    let topHTML = "";
-    sorted.forEach(([id, t]) => {
-        topHTML += id + " : " + t.current + "<br>";
-    });
+            data.forEach(j => {
+                var color = j.status === "red" ? "red" : "green";
 
-    document.getElementById("top").innerHTML = topHTML;
-}
+                var marker = L.circleMarker([j.lat, j.lon], {
+                    color: color,
+                    radius: 10
+                }).addTo(map);
 
-setInterval(loadData, 2000);
-loadData();
+                marker.bindPopup(
+                    `<b>${j.name}</b><br>Traffic: ${j.traffic}`
+                );
+
+                markers.push(marker);
+            });
+        });
+    }
+
+    function loadMetrics() {
+        fetch('/metrics')
+        .then(res => res.json())
+        .then(m => {
+            document.getElementById("total").innerText = m.total_junctions;
+            document.getElementById("avg").innerText = m.avg_traffic;
+            document.getElementById("status").innerText = m.status;
+        });
+    }
+
+    setInterval(() => {
+        loadData();
+        loadMetrics();
+    }, 3000);
+
+    loadData();
+    loadMetrics();
 </script>
 
 </body>
